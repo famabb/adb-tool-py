@@ -1,4 +1,5 @@
-adb tool:
+Right-click menu adb tool:
+
 
 py3.7
 
@@ -7,3 +8,5 @@ py3.7
 2.set system path (PYTHON_EXE: python.exe  path)
 
 3.use root permission run  context_menu.py
+
+4.select apk file ,then right-click
