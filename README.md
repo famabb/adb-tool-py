@@ -1,4 +1,4 @@
-window adb tool totu:
+adb tool:
 
 py3.7
 
