@@ -10,3 +10,5 @@ py3.7
 3.use root permission run  context_menu.py
 
 4.select apk file ,then right-click
+
+5.ApkTool.py 可以实现可视化操作
