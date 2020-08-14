@@ -25,7 +25,7 @@ class ApkTool:
 
     def __init__(self):
         super().__init__()
-        self.show_window('Apk工具', 720, 580)
+        self.show_window('Apk工具', 1080, 720)
 
     def show_window(self, title, width, height):
         # 每一pyqt5应用程序必须创建一个应用程序对象。sys.argv参数是一个列表，从命令行输入参数。
@@ -35,7 +35,7 @@ class ApkTool:
         # resize()方法调整窗口的大小
         w.resize(width, height)
         # 禁止窗体调整大小
-        w.setFixedSize(width, height)
+        # w.setFixedSize(width, height)
         # 获得窗口
         qr = w.frameGeometry()
         # 获得屏幕中心点
@@ -76,7 +76,9 @@ class ApkTool:
 
         title_label = QLabel('APK路径')
         q_push_button = QPushButton('选择')
+        q_push_button.setMinimumHeight(60)
         self.edit_apk_path = MyQLineEdit('.apk')
+        self.edit_apk_path.setMinimumHeight(60)
         self.edit_apk_path.setText('')
         self.edit_apk_path.textChanged.connect(self.apk_path_change)
 
@@ -140,8 +142,8 @@ class ApkTool:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setPalette(self.getColorPalette(Qt.white))
-        scroll.setMaximumHeight(120)
-        scroll.setMinimumHeight(120)
+        scroll.setMaximumHeight(300)
+        scroll.setMinimumHeight(200)
 
         self.label_msg = QLabel()
         self.label_msg.setContentsMargins(10, 2, 10, 0)
