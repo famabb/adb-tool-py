@@ -1,5 +1,6 @@
 import datetime
 import datetime
+import os
 import sys
 import threading
 import tkinter as tk
@@ -19,12 +20,16 @@ from apk_info import ApkInfo
 class ApkTool:
     edit_apk_path: MyQLineEdit
     label_msg: QLabel
+    label_cmd_msg: QLabel
     label_control_msg: QLabel
     apk_info: ApkInfo = None
     buttons = []
+    parent_path = ''
 
     def __init__(self):
         super().__init__()
+        cur_path = os.path.abspath(__file__)
+        self.parent_path = os.path.abspath(os.path.dirname(cur_path)).replace('/', '\\')
         self.show_window('Apk工具', 1080, 720)
 
     def show_window(self, title, width, height):
@@ -48,7 +53,6 @@ class ApkTool:
         w.setWindowTitle(title)
 
         self.add_content_view(w)
-
         # 显示在屏幕上
         w.show()
         # 系统exit()方法确保应用程序干净的退出
@@ -64,6 +68,7 @@ class ApkTool:
 
         self.add_apk_path_view(q_v_box_layout)
         self.add_info_view(q_v_box_layout)
+        self.add_cmd_info_view(q_v_box_layout)
         self.add_control_info_view(q_v_box_layout)
         self.add_button(q_v_box_layout)
 
@@ -77,7 +82,7 @@ class ApkTool:
         title_label = QLabel('APK路径')
         q_push_button = QPushButton('选择')
         q_push_button.setMinimumHeight(60)
-        self.edit_apk_path = MyQLineEdit('.apk')
+        self.edit_apk_path = MyQLineEdit()
         self.edit_apk_path.setMinimumHeight(60)
         self.edit_apk_path.setText('')
         self.edit_apk_path.textChanged.connect(self.apk_path_change)
@@ -135,6 +140,13 @@ class ApkTool:
         q_push_button.clicked.connect(self.clear_app_data)
         q_grid_layout.addWidget(q_push_button, 2, 1)
 
+        q_push_button = QPushButton('安装Apks')
+        self.buttons.append(q_push_button)
+        q_push_button.setMinimumWidth(100)
+        q_push_button.setMinimumHeight(58)
+        q_push_button.clicked.connect(self.install_apks)
+        q_grid_layout.addWidget(q_push_button, 2, 2)
+
         q_v_box_layout.addLayout(q_grid_layout)
 
     # 信息输出
@@ -154,6 +166,29 @@ class ApkTool:
 
         scroll.setAlignment(Qt.AlignTop)
         scroll.setWidget(self.label_msg)
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(scroll)
+        vbox.setContentsMargins(0, 30, 0, 0)
+        q_v_box_layout.addLayout(vbox)
+
+    # 信息输出
+    def add_cmd_info_view(self, q_v_box_layout):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setPalette(self.getColorPalette(Qt.white))
+        scroll.setMaximumHeight(300)
+        scroll.setMinimumHeight(200)
+
+        self.label_cmd_msg = QLabel()
+        self.label_cmd_msg.setContentsMargins(10, 2, 10, 0)
+        self.label_cmd_msg.setWordWrap(True)
+        self.label_cmd_msg.setAlignment(Qt.AlignTop)
+        # 四倍行距
+        self.label_cmd_msg.setGeometry(QRect(328, 240, 800, 27 * 100000))
+
+        scroll.setAlignment(Qt.AlignTop)
+        scroll.setWidget(self.label_cmd_msg)
 
         vbox = QVBoxLayout()
         vbox.addWidget(scroll)
@@ -203,20 +238,24 @@ class ApkTool:
         palette.setColor(QPalette.ButtonText, qt_color)
         return palette
 
+    def add_cmd_msg(self, msg):
+        self.label_cmd_msg.setText(self.label_cmd_msg.text() + '\n' + msg)
+
     # 输出信息
     def add_msg(self, msg):
         self.label_msg.setText(self.label_msg.text() + '\n' + msg)
 
     def set_control_msg(self, msg, state):
-        now_time = datetime.datetime.now()
-        time_str = datetime.datetime.strftime(now_time, '%Y-%m-%d %H:%M:%S')
+        time_str = util.getCurFormatTime()
         self.label_control_msg.setText('时间:' + time_str + ' , 操作: ' + msg + ' ,  状态: ' + state)
 
     def start_adb(self):
         def start():
+            self.add_cmd_msg('\nTask:启动ADB' + ',Time : ' + util.getCurFormatTime())
             self.set_control_msg('启动ADB', '执行中')
             self.fix_button_state(False)
-            adb_util.startAdbServer()
+            msg = adb_util.startAdbServer()
+            self.add_cmd_msg(msg + 'End:启动ADB' + ',Time : ' + util.getCurFormatTime())
             self.fix_button_state(True)
             self.set_control_msg('启动ADB', '执行结束')
 
@@ -225,9 +264,11 @@ class ApkTool:
     def new_install(self):
         if self.apk_info:
             def start():
+                self.add_cmd_msg('\nTask:安装应用' + ',Time : ' + util.getCurFormatTime())
                 self.set_control_msg('安装应用', '执行中')
                 self.fix_button_state(False)
-                adb_util.installApk(self.apk_info.apk_path)
+                msg = adb_util.installApk(self.apk_info.apk_path)
+                self.add_cmd_msg(msg + 'End:安装应用' + ',Time : ' + util.getCurFormatTime())
                 adb_util.startApp(self.apk_info.apk_path)
                 self.fix_button_state(True)
                 self.set_control_msg('安装应用', '执行结束')
@@ -237,9 +278,11 @@ class ApkTool:
     def up_install(self):
         if self.apk_info:
             def start():
+                self.add_cmd_msg('\nTask:升级应用' + ',Time : ' + util.getCurFormatTime())
                 self.set_control_msg('升级应用', '执行中')
                 self.fix_button_state(False)
-                adb_util.reInstallApk(self.apk_info.apk_path)
+                msg = adb_util.reInstallApk(self.apk_info.apk_path)
+                self.add_cmd_msg(msg + 'End:升级应用' + ',Time : ' + util.getCurFormatTime())
                 adb_util.startApp(self.apk_info.apk_path)
                 self.fix_button_state(True)
                 self.set_control_msg('升级应用', '执行结束')
@@ -249,9 +292,11 @@ class ApkTool:
     def delete_apk(self):
         if self.apk_info:
             def start():
+                self.add_cmd_msg('\nTask:卸载应用' + ',Time : ' + util.getCurFormatTime())
                 self.set_control_msg('卸载应用', '执行中')
                 self.fix_button_state(False)
-                adb_util.uninstall(self.apk_info.package)
+                msg = adb_util.uninstall(self.apk_info.package)
+                self.add_cmd_msg(msg + 'End:卸载应用' + ',Time : ' + util.getCurFormatTime())
                 self.fix_button_state(True)
                 self.set_control_msg('卸载应用', '执行结束')
 
@@ -260,11 +305,28 @@ class ApkTool:
     def clear_app_data(self):
         if self.apk_info:
             def start():
+                self.add_cmd_msg('\nTask:清除应用数据' + ',Time : ' + util.getCurFormatTime())
                 self.set_control_msg('清除应用数据', '执行中')
                 self.fix_button_state(False)
-                adb_util.clear(self.apk_info.package)
+                msg = adb_util.clear(self.apk_info.package)
+                self.add_cmd_msg(msg + 'End:清除应用数据' + ',Time : ' + util.getCurFormatTime())
                 self.fix_button_state(True)
                 self.set_control_msg('清除应用数据', '执行结束')
+
+            threading.Thread(target=start).start()
+
+    def install_apks(self):
+        path = self.edit_apk_path.text()
+        if path.endswith('.apks'):
+            def start():
+                self.add_cmd_msg('\nTask:安装Apks' + ',Time : ' + util.getCurFormatTime())
+                self.set_control_msg('安装Apks', '执行中')
+                self.fix_button_state(False)
+                tool_path = self.parent_path + '\\ApBundles-Tools\\bundletool.jar'
+                msg = adb_util.installApks(tool_path, path)
+                self.add_cmd_msg(msg + 'End:安装Apks' + ',Time : ' + util.getCurFormatTime())
+                self.fix_button_state(True)
+                self.set_control_msg('安装Apks', '执行结束')
 
             threading.Thread(target=start).start()
 

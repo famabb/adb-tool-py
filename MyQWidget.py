@@ -3,16 +3,15 @@ from PyQt5.QtWidgets import QLineEdit
 
 # 可以拖拽接收路径
 class MyQLineEdit(QLineEdit):
-    match_end = ''
     """实现文件拖放功能"""
 
-    def __init__(self, parent=None, end=''):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.match_end = end
         self.setAcceptDrops(True)
 
     def dragEnterEvent(self, e):
-        if self.match_end == '' or e.mimeData().text().lower().endswith(self.match_end):
+        text = e.mimeData().text().lower()
+        if text.endswith('.apk') or text.endswith('.apks'):
             e.accept()
         else:
             e.ignore()

@@ -1,10 +1,12 @@
 
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os
 import sys
-import util
+
 import adb_util
 import apk_info
+import util
 
 if __name__ == '__main__':
     try:
