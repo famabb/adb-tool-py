@@ -1,5 +1,4 @@
-import datetime
-import datetime
+import os
 import os
 import sys
 import threading
@@ -7,17 +6,26 @@ import tkinter as tk
 from tkinter import filedialog
 
 from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QPalette
-from PyQt5.QtWidgets import QApplication, QDesktopWidget, QWidget, \
-    QGridLayout, QLabel, QPushButton, QVBoxLayout, QScrollArea
+from PyQt5.QtGui import QPalette, QPixmap
+from PyQt5.QtWidgets import QApplication, QDesktopWidget, QGridLayout, QLabel, QPushButton, QVBoxLayout, QScrollArea, \
+    QLineEdit
 
 import adb_util
+import socket_util
 import util
+import time
 from MyQWidget import MyQLineEdit
+from RootQWidget import RootQWidget
 from apk_info import ApkInfo
+from constant import *
 
 
 class ApkTool:
+    edit_host: QLineEdit
+    edit_port: QLineEdit
+    label_adb_dev: QLabel
+    label_point: QLabel
+
     edit_apk_path: MyQLineEdit
     label_msg: QLabel
     label_cmd_msg: QLabel
@@ -25,6 +33,7 @@ class ApkTool:
     apk_info: ApkInfo = None
     buttons = []
     parent_path = ''
+    isStartAdb = False
 
     def __init__(self):
         super().__init__()
@@ -36,7 +45,7 @@ class ApkTool:
         # 每一pyqt5应用程序必须创建一个应用程序对象。sys.argv参数是一个列表，从命令行输入参数。
         app = QApplication(sys.argv)
         # QWidget部件是pyqt5所有用户界面对象的基类。他为QWidget提供默认构造函数。默认构造函数没有父类。
-        w = QWidget()
+        w = RootQWidget()
         # resize()方法调整窗口的大小
         w.resize(width, height)
         # 禁止窗体调整大小
@@ -53,11 +62,17 @@ class ApkTool:
         w.setWindowTitle(title)
 
         self.add_content_view(w)
+        w.signal_close.connect(self.window_close)
         # 显示在屏幕上
         w.show()
+        self.start_get_dev()
         # 系统exit()方法确保应用程序干净的退出
         # 的exec_()方法有下划线。因为执行是一个Python关键词。因此，exec_()代替
         sys.exit(app.exec_())
+
+    def window_close(self, data):
+        self.isStartAdb = False
+        print('window_close : ' + data)
 
     # 加入全部子view
     def add_content_view(self, base_widget):
@@ -66,6 +81,7 @@ class ApkTool:
         q_v_box_layout.setContentsMargins(50, 60, 50, 60)
         q_v_box_layout.setSpacing(10)
 
+        self.add_adb_state_view(q_v_box_layout)
         self.add_apk_path_view(q_v_box_layout)
         self.add_info_view(q_v_box_layout)
         self.add_cmd_info_view(q_v_box_layout)
@@ -73,6 +89,39 @@ class ApkTool:
         self.add_button(q_v_box_layout)
 
         base_widget.setLayout(q_v_box_layout)
+
+    # 设备状态
+    def add_adb_state_view(self, q_v_box_layout):
+        q_grid_layout = QGridLayout()
+        q_grid_layout.setSpacing(30)
+        q_grid_layout.setContentsMargins(0, 0, 0, 10)
+
+        self.edit_host = QLineEdit()
+        self.edit_host.setMaximumWidth(200)
+        self.edit_host.setMinimumHeight(30)
+        self.edit_host.setPlaceholderText('Host')
+        self.edit_host.setText(HOST)
+
+        self.edit_port = QLineEdit()
+        self.edit_port.setText(str(PORT))
+        self.edit_port.setMaximumWidth(100)
+        self.edit_port.setMinimumHeight(30)
+        self.edit_port.setPlaceholderText('Port')
+
+        self.label_adb_dev = QLabel()
+        self.label_adb_dev.adjustSize()
+        self.label_point = QLabel()
+        self.label_point.setScaledContents(True)
+        self.label_point.setMaximumSize(30, 30)
+        self.label_point.setMinimumSize(30, 30)
+
+        q_grid_layout.addWidget(self.edit_host, 1, 0)
+        q_grid_layout.addWidget(self.edit_port, 1, 1)
+        q_grid_layout.addWidget(self.label_point, 1, 2)
+        q_grid_layout.addWidget(self.label_adb_dev, 1, 3)
+
+        q_v_box_layout.addLayout(q_grid_layout)
+
 
     # APK路径
     def add_apk_path_view(self, q_v_box_layout):
@@ -241,6 +290,12 @@ class ApkTool:
     def add_cmd_msg(self, msg):
         self.label_cmd_msg.setText(self.label_cmd_msg.text() + '\n' + msg)
 
+    def fix_point_state(self, state):
+        if state:
+            self.label_point.setPixmap(QPixmap("./icon/green.png"))
+        else:
+            self.label_point.setPixmap(QPixmap("./icon/red.png"))
+
     # 输出信息
     def add_msg(self, msg):
         self.label_msg.setText(self.label_msg.text() + '\n' + msg)
@@ -333,6 +388,61 @@ class ApkTool:
     def fix_button_state(self, enable):
         for btn in self.buttons:
             btn.setEnabled(enable)
+
+    def start_get_dev(self):
+        threading.Thread(target=self.adb_socket).start()
+
+    def get_client(self):
+        host = self.edit_host.text()
+        if host == '':
+            host = HOST
+
+        port = self.edit_port.text()
+        if port == '':
+            port = str(PORT)
+        try:
+            return socket_util.connect_socket(host, int(port))
+        except Exception as e:
+            print('get_client Exception')
+            return None
+
+    def read_socket_content(self, client):
+        status = client.recv(4)
+        length = client.recv(4)
+        content = socket_util.read_all_content(client)
+        client.close()
+        final_result = {
+            'status': status,
+            'length': length,
+            'content': content,
+        }
+        final_result = {_: v.decode(ENCODING) for _, v in final_result.items()}
+        return final_result
+
+    def adb_socket(self):
+        ready_data = socket_util.adb_encode_data(ANDROID_ADB_DEVICES_CMD, ENCODING)
+        self.isStartAdb = True
+
+        while self.isStartAdb:
+            time.sleep(2)
+            client = self.get_client()
+            if client:
+                client.send(ready_data)
+                final_result = self.read_socket_content(client)
+                content = final_result['content']
+                if not content == '' and ('offline' not in content):
+                    self.fix_point_state(True)
+                    dev = final_result['content'].replace('\n', '').replace('device', '').replace(' ', '')
+                    sys_version = adb_util.get_dev_version().replace('\n', '')
+                    sys_api = adb_util.get_dev_api().replace('\n', '')
+                    self.label_adb_dev.setText(dev + ', Android: ' + sys_version + ', Sdk: ' + sys_api)
+                else:
+                    self.fix_point_state(False)
+                    self.label_adb_dev.setText('当前设备: 无')
+            else:
+                self.fix_point_state(False)
+
+        self.fix_point_state(False)
 
 
 if __name__ == '__main__':

@@ -59,6 +59,18 @@ def fixLanguage(country, language):
     print('fixLanguage : ' + msg)
     return msg
 
+def get_dev_version():
+    cmd = 'adb shell getprop ro.build.version.release'
+    msg = util.getCommodText(cmd)
+    print('get_dev_version : ' + msg)
+    return msg
+
+
+def get_dev_api():
+    cmd = 'adb shell getprop ro.build.version.sdk'
+    msg = util.getCommodText(cmd)
+    print('get_dev_api : ' + msg)
+    return msg
 
 if __name__ == '__main__':
     print('adb_util.py')
