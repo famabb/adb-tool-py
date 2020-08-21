@@ -441,6 +441,7 @@ class ApkTool:
                     self.label_adb_dev.setText('当前设备: 无')
             else:
                 self.fix_point_state(False)
+                self.label_adb_dev.setText('当前设备: 无')
 
         self.fix_point_state(False)
 
