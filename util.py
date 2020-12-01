@@ -21,7 +21,7 @@ def getCommodText(cmd):
     text = ''
     try:
         # creationflags  屏蔽adb命令
-        popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, creationflags=0x08000000)
+        popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=0x08000000)
         out, err = popen.communicate()
 
         for line in out.splitlines():
