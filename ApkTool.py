@@ -251,7 +251,8 @@ class ApkTool:
         scroll.setMaximumHeight(300)
         scroll.setMinimumHeight(200)
 
-        self.label_msg = QLabel()
+        self.label_msg = QLabel(" ")#空格占位，否则setTextInteractionFlags会报错
+        self.label_msg.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.label_msg.setContentsMargins(10, 2, 10, 0)
         self.label_msg.setWordWrap(True)
         self.label_msg.setAlignment(Qt.AlignTop)
@@ -274,7 +275,8 @@ class ApkTool:
         scroll.setMaximumHeight(300)
         scroll.setMinimumHeight(200)
 
-        self.label_cmd_msg = QLabel()
+        self.label_cmd_msg = QLabel(" ")#空格占位，否则setTextInteractionFlags会报错
+        self.label_cmd_msg.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.label_cmd_msg.setContentsMargins(10, 2, 10, 0)
         self.label_cmd_msg.setWordWrap(True)
         self.label_cmd_msg.setAlignment(Qt.AlignTop)
