@@ -1,5 +1,6 @@
 #
 import os
+import sched
 import sys
 import threading
 import time
@@ -37,9 +38,11 @@ class ApkTool:
     parent_path = ''
     isStartAdb = False
     lang: Lang = Lang()
+    scheduler = None
 
     def __init__(self):
         super().__init__()
+        self.scheduler = sched.scheduler()
         cur_path = os.path.abspath(__file__)
         self.parent_path = os.path.abspath(os.path.dirname(cur_path)).replace('/', '\\')
         self.show_window('Apk工具', 1080, 720)
@@ -51,6 +54,7 @@ class ApkTool:
         w = RootQWidget()
         # resize()方法调整窗口的大小
         w.resize(width, height)
+        w.setMaximumWidth(width)
         # 禁止窗体调整大小
         # w.setFixedSize(width, height)
         # 获得窗口
@@ -174,6 +178,7 @@ class ApkTool:
         q_grid_layout.addWidget(q_push_button, 1, 2)
 
         q_push_button = QPushButton('卸载APP')
+        q_push_button.setStyleSheet("color:white")
         self.buttons.append(q_push_button)
         q_push_button.setPalette(self.getColorPalette(Qt.red))
         q_push_button.setAutoFillBackground(True)
@@ -184,6 +189,7 @@ class ApkTool:
         q_grid_layout.addWidget(q_push_button, 2, 0)
 
         q_push_button = QPushButton('清APP数据')
+        q_push_button.setStyleSheet("color:white")
         self.buttons.append(q_push_button)
         q_push_button.setPalette(self.getColorPalette(Qt.red))
         q_push_button.setAutoFillBackground(True)
@@ -193,11 +199,11 @@ class ApkTool:
         q_push_button.clicked.connect(self.clear_app_data)
         q_grid_layout.addWidget(q_push_button, 2, 1)
 
-        q_push_button = QPushButton('安装Apks')
+        q_push_button = QPushButton('应用版本')
         self.buttons.append(q_push_button)
         q_push_button.setMinimumWidth(100)
         q_push_button.setMinimumHeight(58)
-        q_push_button.clicked.connect(self.install_apks)
+        q_push_button.clicked.connect(self.get_pkg_version)
         q_grid_layout.addWidget(q_push_button, 2, 2)
 
         q_v_box_layout.addLayout(q_grid_layout)
@@ -251,7 +257,7 @@ class ApkTool:
         scroll.setMaximumHeight(300)
         scroll.setMinimumHeight(200)
 
-        self.label_msg = QLabel(" ")#空格占位，否则setTextInteractionFlags会报错
+        self.label_msg = QLabel(" ")  # 空格占位，否则setTextInteractionFlags会报错
         self.label_msg.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.label_msg.setContentsMargins(10, 2, 10, 0)
         self.label_msg.setWordWrap(True)
@@ -269,13 +275,13 @@ class ApkTool:
 
     # 信息输出
     def add_cmd_info_view(self, q_v_box_layout):
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setPalette(self.getColorPalette(Qt.white))
-        scroll.setMaximumHeight(300)
-        scroll.setMinimumHeight(200)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setPalette(self.getColorPalette(Qt.white))
+        self.scroll.setMaximumHeight(300)
+        self.scroll.setMinimumHeight(200)
 
-        self.label_cmd_msg = QLabel(" ")#空格占位，否则setTextInteractionFlags会报错
+        self.label_cmd_msg = QLabel(" ")  # 空格占位，否则setTextInteractionFlags会报错
         self.label_cmd_msg.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
         self.label_cmd_msg.setContentsMargins(10, 2, 10, 0)
         self.label_cmd_msg.setWordWrap(True)
@@ -283,11 +289,11 @@ class ApkTool:
         # 四倍行距
         self.label_cmd_msg.setGeometry(QRect(328, 240, 800, 27 * 100000))
 
-        scroll.setAlignment(Qt.AlignTop)
-        scroll.setWidget(self.label_cmd_msg)
+        self.scroll.setAlignment(Qt.AlignTop)
+        self.scroll.setWidget(self.label_cmd_msg)
 
         vbox = QVBoxLayout()
-        vbox.addWidget(scroll)
+        vbox.addWidget(self.scroll)
         vbox.setContentsMargins(0, 30, 0, 0)
         q_v_box_layout.addLayout(vbox)
 
@@ -310,7 +316,7 @@ class ApkTool:
     # 路径改变
     def apk_path_change(self):
         path = self.edit_apk_path.text()
-        if path.lower().endswith('.apk'):
+        if path.lower().endswith('.apk') or path.lower().endswith('.apks'):
             threading.Thread(target=self.resolve_apk, args=(path,)).start()
 
     # 解析apk
@@ -336,6 +342,11 @@ class ApkTool:
 
     def add_cmd_msg(self, msg):
         self.label_cmd_msg.setText(self.label_cmd_msg.text() + '\n' + msg)
+        self.scheduler.enter(0.01, 0, self.up_scroll_view)
+        self.scheduler.run()
+
+    def up_scroll_view(self):
+        self.scroll.verticalScrollBar().setValue(self.scroll.verticalScrollBar().maximum())
 
     def fix_point_state(self, state):
         if state:
@@ -364,7 +375,10 @@ class ApkTool:
         threading.Thread(target=start).start()
 
     def new_install(self):
-        if self.apk_info:
+        path = self.edit_apk_path.text()
+        if path.lower().endswith('.apks'):
+            self.install_apks()
+        elif self.apk_info:
             def start():
                 self.add_cmd_msg('\nTask:安装应用' + ',Time : ' + util.getCurFormatTime())
                 self.set_control_msg('安装应用', '执行中')
@@ -378,7 +392,10 @@ class ApkTool:
             threading.Thread(target=start).start()
 
     def up_install(self):
-        if self.apk_info:
+        path = self.edit_apk_path.text()
+        if path.lower().endswith('.apks'):
+            self.install_apks()
+        elif self.apk_info:
             def start():
                 self.add_cmd_msg('\nTask:升级应用' + ',Time : ' + util.getCurFormatTime())
                 self.set_control_msg('升级应用', '执行中')
@@ -431,6 +448,33 @@ class ApkTool:
                 self.set_control_msg('安装Apks', '执行结束')
 
             threading.Thread(target=start).start()
+
+    def get_pkg_version(self):
+        path = self.edit_apk_path.text().replace(" ", "")
+
+        def start():
+            self.add_cmd_msg('\nTask:获取已安装的应用信息' + ',Time : ' + util.getCurFormatTime())
+            self.set_control_msg('获取已安装的应用信息', '执行中')
+            self.fix_button_state(False)
+            info = None
+            if path is not "" and path is not None and self.apk_info:
+                info = adb_util.get_pkg_info(self.apk_info.package)
+            else:
+                pkg = adb_util.get_focus_app_pkg()
+                if pkg:
+                    info = adb_util.get_pkg_info(pkg)
+            msg = ''
+            if info:
+                msg = info.get("package") + '\n' + info.get("versionName") + '\n' + info.get("versionCode")
+            else:
+                msg = "no found this app info!!!"
+
+            self.add_cmd_msg(msg + '\n')
+            self.add_cmd_msg('End:获取已安装的应用信息' + ',Time : ' + util.getCurFormatTime())
+            self.fix_button_state(True)
+            self.set_control_msg('获取已安装的应用信息', '执行结束')
+
+        threading.Thread(target=start).start()
 
     def fix_button_state(self, enable):
         for btn in self.buttons:
@@ -493,36 +537,54 @@ class ApkTool:
         self.fix_point_state(False)
 
     def install_lang_apk(self):
-        self.add_cmd_msg('\nTask:安装语言Apks' + ',Time : ' + util.getCurFormatTime())
-        self.set_control_msg('安装语言Apks', '执行中')
-        self.fix_button_state(False)
-        msg = self.lang.install_lang_apk()
-        self.add_cmd_msg(msg + 'End:安装语言Apks' + ',Time : ' + util.getCurFormatTime())
-        self.fix_button_state(True)
-        self.set_control_msg('安装语言Apks', '执行结束')
+        def start():
+            self.add_cmd_msg('\nTask:安装语言Apk' + ',Time : ' + util.getCurFormatTime())
+            self.set_control_msg('安装语言Apk', '执行中')
+            self.fix_button_state(False)
+            msg = self.lang.install_lang_apk()
+            self.add_cmd_msg(msg + 'End:安装语言Apk' + ',Time : ' + util.getCurFormatTime())
+            self.fix_button_state(True)
+            self.set_control_msg('安装语言Apk', '执行结束')
+
+        threading.Thread(target=start).start()
 
     def request_lang_configuration(self):
-        self.add_cmd_msg('\nTask:申请语言权限' + ',Time : ' + util.getCurFormatTime())
-        self.set_control_msg('申请语言权限', '执行中')
-        self.fix_button_state(False)
-        msg = self.lang.fix_change_configuration()
-        if msg is not None and len(msg) is 0:
-            msg = self.lang.open_write_settings()
-        else:
-            tip_dialog.TipDialog().showTip(msg)
-        self.add_cmd_msg(msg + 'End:申请语言权限' + ',Time : ' + util.getCurFormatTime())
-        self.fix_button_state(True)
-        self.set_control_msg('申请语言权限', '执行结束')
+        def start():
+            self.add_cmd_msg('\nTask:申请语言权限' + ',Time : ' + util.getCurFormatTime())
+            self.set_control_msg('申请语言权限', '执行中')
+            self.fix_button_state(False)
+            msg = self.lang.fix_change_configuration()
+            if msg is not None and len(msg) is 0:
+                msg = self.lang.open_write_settings()
+            else:
+                tip_dialog.TipDialog().showTip(msg)
+            self.add_cmd_msg(msg + 'End:申请语言权限' + ',Time : ' + util.getCurFormatTime())
+            self.fix_button_state(True)
+            self.set_control_msg('申请语言权限', '执行结束')
+            self.lang.startLangApk()
+
+        threading.Thread(target=start).start()
 
     def onActivatedLang(self, name):
-        self.add_cmd_msg('\nTask:修改手机语言:' + name + ',Time : ' + util.getCurFormatTime())
-        self.set_control_msg('修改手机语言', '执行中')
-        self.fix_button_state(False)
-        locale = self.lang.getLangLocale(name)
-        msg = self.lang.change_language(locale)
-        self.add_cmd_msg(msg + 'End:修改手机语言' + name + ',Time : ' + util.getCurFormatTime())
-        self.fix_button_state(True)
-        self.set_control_msg('修改手机语言', '执行结束')
+        def start():
+            # kill app
+            apk_path = self.edit_apk_path.text()
+            if apk_path is not '' and self.apk_info is not None:
+                adb_util.stop_app(self.apk_info.package)
+
+            self.add_cmd_msg('\nTask:修改手机语言:' + name + ',Time : ' + util.getCurFormatTime())
+            self.set_control_msg('修改手机语言', '执行中')
+            self.fix_button_state(False)
+            locale = self.lang.getLangLocale(name)
+            msg = self.lang.change_language(locale)
+            self.add_cmd_msg(msg + 'End:修改手机语言' + name + ',Time : ' + util.getCurFormatTime())
+            self.fix_button_state(True)
+            self.set_control_msg('修改手机语言', '执行结束')
+            # 启动app
+            if apk_path is not '' and self.apk_info is not None:
+                adb_util.start_App(self.apk_info.package, self.apk_info.launchable)
+
+        threading.Thread(target=start).start()
 
 
 if __name__ == '__main__':

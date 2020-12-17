@@ -3,6 +3,7 @@
 import os
 import re
 import util
+import zipfile
 
 
 # package: name='com.poly.art.coloring.color.by.number' versionCode='3' versionName='0.9.3'
@@ -11,10 +12,29 @@ class ApkInfo:
     launchable = ''
     versionCode = ''
     versionName = ''
+    apk_path = ''
 
     def __init__(self, apkpath):
         self.apk_path = apkpath
-        self.text = self.getApkText()
+        sv_path = ''
+        if apkpath.lower().endswith('.apks'):
+            cur_path = os.path.abspath(__file__)
+            parent_path = os.path.abspath(os.path.dirname(cur_path)).replace('/', '\\')
+            apk = os.path.join(parent_path, 'standalone.apk')
+            if os.path.exists(apk):
+                os.remove(apk)
+            dstf = open(apk, mode='wb')
+            z = zipfile.ZipFile(apkpath, "r")
+            standalone = z.read('standalones/standalone.apk')
+            dstf.write(standalone)
+            dstf.flush()
+            dstf.close()
+            z.close()
+            sv_path = apk
+        else:
+            sv_path = apkpath
+
+        self.text = self.getApkText(sv_path)
 
         # self.package = self.getPackage()
         self.launchable = self.getLaunchable()
@@ -26,9 +46,9 @@ class ApkInfo:
             self.versionCode = match.group(2)
             self.versionName = match.group(3)
 
-    def getApkText(self):
+    def getApkText(self, apk_path):
         aapt_exe = self.get_aapt()
-        path = util.tranlatePath(self.apk_path)
+        path = util.tranlatePath(apk_path)
         cmd = aapt_exe + "  dump badging " + path
         return util.getCommodText(cmd)
 

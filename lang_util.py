@@ -28,7 +28,7 @@ class Lang:
         self.lang_path = self.parent_path + '\\lang\\lang.txt'
 
     def install_lang_apk(self):
-        return adb_util.installApk(self.apk_path)
+        return adb_util.reInstallApk(self.apk_path)
 
     def startLangApk(self):
         return adb_util.startApp(self.apk_path)

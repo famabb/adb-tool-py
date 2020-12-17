@@ -12,6 +12,7 @@ class TipDialog:
         self.dialog = QDialog()
         self.dialog.setWindowTitle("提示")
         self.dialog.resize(300, 200)
+        self.dialog.setMaximumWidth(300)
         vbox.addWidget(panel)
         okBtn = QPushButton("确定")
         okBtn.clicked.connect(self.ok)
