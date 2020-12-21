@@ -21,8 +21,7 @@ class ApkInfo:
             cur_path = os.path.abspath(__file__)
             parent_path = os.path.abspath(os.path.dirname(cur_path)).replace('/', '\\')
             apk = os.path.join(parent_path, 'standalone.apk')
-            if os.path.exists(apk):
-                os.remove(apk)
+            util.delete_file(apk)
             dstf = open(apk, mode='wb')
             z = zipfile.ZipFile(apkpath, "r")
             standalone = z.read('standalones/standalone.apk')

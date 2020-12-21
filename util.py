@@ -1,4 +1,5 @@
 import datetime
+import os
 import subprocess
 import time
 import traceback
@@ -17,11 +18,16 @@ def delatyClose():
         time.sleep(1)
 
 
+def get_popen(cmd):
+    # creationflags  屏蔽adb命令
+    return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=0x08000000)
+
+
 def getCommodText(cmd):
     text = ''
     try:
         # creationflags  屏蔽adb命令
-        popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=0x08000000)
+        popen = get_popen(cmd)
         out, err = popen.communicate()
 
         for line in out.splitlines():
@@ -39,6 +45,18 @@ def getCommodText(cmd):
 def getCurFormatTime():
     now_time = datetime.datetime.now()
     return datetime.datetime.strftime(now_time, '%Y-%m-%d %H:%M:%S')
+
+
+def delete_file(path):
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+            return True
+        except Exception as e:
+            f = open(path, encoding="utf-8")
+            f.close()
+            os.remove(path)
+    return False
 
 
 if __name__ == '__main__':

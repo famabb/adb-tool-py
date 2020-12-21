@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QWidget
 
 class RootQWidget(QWidget):
     signal_close = pyqtSignal(str)
+    signal_dialog = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)

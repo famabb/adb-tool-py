@@ -7,7 +7,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog
 
-from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtCore import Qt, QRect, pyqtSignal
 from PyQt5.QtGui import QPalette, QPixmap
 from PyQt5.QtWidgets import QApplication, QDesktopWidget, QGridLayout, QLabel, QPushButton, QVBoxLayout, QScrollArea, \
     QLineEdit, QComboBox
@@ -19,6 +19,7 @@ import util
 from MyQWidget import MyQLineEdit
 from RootQWidget import RootQWidget
 from apk_info import ApkInfo
+from auto_event import auto_event
 from constant import *
 from lang_util import Lang
 
@@ -39,6 +40,9 @@ class ApkTool:
     isStartAdb = False
     lang: Lang = Lang()
     scheduler = None
+    dialog = None
+    signal_dialog = None
+    event_window: auto_event = None
 
     def __init__(self):
         super().__init__()
@@ -69,6 +73,8 @@ class ApkTool:
         w.setWindowTitle(title)
 
         self.add_content_view(w)
+        self.signal_dialog = w.signal_dialog
+        w.signal_dialog.connect(self.show_dialog)
         w.signal_close.connect(self.window_close)
         # 显示在屏幕上
         w.show()
@@ -80,6 +86,7 @@ class ApkTool:
 
     def window_close(self, data):
         self.isStartAdb = False
+        self.fix_event_window_adb_state(False)
         print('window_close : ' + data)
 
     # 加入全部子view
@@ -213,28 +220,29 @@ class ApkTool:
         q_grid_layout.setSpacing(30)
         q_grid_layout.setContentsMargins(0, 20, 0, 0)
 
+        q_push_button = QPushButton('自动化事件')
+        self.buttons.append(q_push_button)
+        q_push_button.setMinimumWidth(100)
+        q_push_button.setMinimumHeight(58)
+        q_push_button.clicked.connect(self.open_event_window)
+        q_grid_layout.addWidget(q_push_button, 1, 0)
+
         q_push_button = QPushButton('安装语言APK')
         self.buttons.append(q_push_button)
-        q_push_button.setPalette(self.getColorPalette(Qt.green))
-        q_push_button.setAutoFillBackground(True)
-        q_push_button.setFlat(True)
         q_push_button.setMinimumWidth(100)
         q_push_button.setMinimumHeight(58)
         q_push_button.clicked.connect(self.install_lang_apk)
-        q_grid_layout.addWidget(q_push_button, 1, 0)
+        q_grid_layout.addWidget(q_push_button, 1, 1)
 
         q_push_button = QPushButton('申请语言权限')
         self.buttons.append(q_push_button)
-        q_push_button.setPalette(self.getColorPalette(Qt.green))
-        q_push_button.setAutoFillBackground(True)
-        q_push_button.setFlat(True)
         q_push_button.setMinimumWidth(100)
         q_push_button.setMinimumHeight(58)
         q_push_button.clicked.connect(self.request_lang_configuration)
-        q_grid_layout.addWidget(q_push_button, 1, 1)
+        q_grid_layout.addWidget(q_push_button, 1, 2)
 
         combo = self.get_lang_QComboBox()
-        q_grid_layout.addWidget(combo, 1, 2)
+        q_grid_layout.addWidget(combo, 1, 3)
 
         q_v_box_layout.addLayout(q_grid_layout)
 
@@ -310,7 +318,7 @@ class ApkTool:
 
         # path = filedialog.askdirectory()  # 获得选择好的文件夹
         path = filedialog.askopenfilename()  # 获得选择好的文件
-        if path.endswith('.apk'):
+        if path.endswith('.apk') or path.lower().endswith('.apks'):
             self.edit_apk_path.setText(path)
 
     # 路径改变
@@ -516,25 +524,31 @@ class ApkTool:
 
         while self.isStartAdb:
             time.sleep(2)
+            if self.isStartAdb is False:
+                return
             client = self.get_client()
             if client:
                 client.send(ready_data)
                 final_result = self.read_socket_content(client)
                 content = final_result['content']
                 if not content == '' and ('offline' not in content):
+                    self.fix_event_window_adb_state(True)
                     self.fix_point_state(True)
                     dev = final_result['content'].replace('\n', '').replace('device', '').replace(' ', '')
                     sys_version = adb_util.get_dev_version().replace('\n', '')
                     sys_api = adb_util.get_dev_api().replace('\n', '')
                     self.label_adb_dev.setText(dev + ', Android: ' + sys_version + ', Sdk: ' + sys_api)
                 else:
+                    self.fix_event_window_adb_state(False)
                     self.fix_point_state(False)
                     self.label_adb_dev.setText('当前设备: 无')
             else:
+                self.fix_event_window_adb_state(False)
                 self.fix_point_state(False)
                 self.label_adb_dev.setText('当前设备: 无')
 
         self.fix_point_state(False)
+        self.fix_event_window_adb_state(False)
 
     def install_lang_apk(self):
         def start():
@@ -557,13 +571,18 @@ class ApkTool:
             if msg is not None and len(msg) is 0:
                 msg = self.lang.open_write_settings()
             else:
-                tip_dialog.TipDialog().showTip(msg)
+                self.signal_dialog.emit(msg)
             self.add_cmd_msg(msg + 'End:申请语言权限' + ',Time : ' + util.getCurFormatTime())
             self.fix_button_state(True)
             self.set_control_msg('申请语言权限', '执行结束')
             self.lang.startLangApk()
 
         threading.Thread(target=start).start()
+
+    def show_dialog(self, data):
+        if self.dialog is None:
+            self.dialog = tip_dialog.TipDialog()
+        self.dialog.showTip(data)
 
     def onActivatedLang(self, name):
         def start():
@@ -585,6 +604,15 @@ class ApkTool:
                 adb_util.start_App(self.apk_info.package, self.apk_info.launchable)
 
         threading.Thread(target=start).start()
+
+    def open_event_window(self):
+        if self.event_window is None:
+            self.event_window = auto_event()
+        self.event_window.show(self.apk_info)
+
+    def fix_event_window_adb_state(self, adb_state):
+        if self.event_window is not None:
+            self.event_window.set_adb_state(adb_state)
 
 
 if __name__ == '__main__':

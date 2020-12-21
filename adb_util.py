@@ -98,9 +98,16 @@ def get_dev_api():
 
 
 def click_tap(x, y):
-    cmd = 'adb shell input tap ' + x + '  ' + y
+    cmd = 'adb shell input tap ' + str(x) + '  ' + str(y)
     msg = util.getCommodText(cmd)
     # print('click tap : ' + msg)
+    return msg
+
+
+# 滑动 time 毫秒
+def click_swipe(x, y, x2, y2, time):
+    cmd = 'adb shell input swipe ' + str(x) + '  ' + str(y) + '  ' + str(x2) + '  ' + str(y2) + '  ' + str(time)
+    msg = util.getCommodText(cmd)
     return msg
 
 
@@ -112,6 +119,17 @@ def click_keyevent(keyCode):
     return msg
 
 
+def event_input(text):
+    cmd = 'adb shell input text ' + text
+    msg = util.getCommodText(cmd)
+    return msg
+
+
+def get_click_event_popen():
+    cmd = 'adb shell getevent '
+    return util.get_popen(cmd)
+
+
 def get_focus_app_pkg():
     cmd = 'adb shell \"dumpsys window | grep mCurrentFocus\"'
     msg = util.getCommodText(cmd)
@@ -119,7 +137,7 @@ def get_focus_app_pkg():
     try:
         package = msg.split(" ")[4].split("/")[0]
     except Exception as e:
-        print("get_focus_app_pkg Exception")
+        print("get_focus_app_pkg Exception:" + e.args[0]+'   '+msg)
     return package
 
 
@@ -137,6 +155,49 @@ def get_pkg_info(pkg):
     except Exception as e:
         print("get_pkg_info Exception  " + e.args[0])
     return info
+
+
+def safe_index_of(str0, substr):
+    try:
+        return str0.index(substr)
+    except ValueError:
+        return -1
+
+
+def get_app_main(package_name):
+    cmd = "adb shell dumpsys package " + package_name
+    result = util.getCommodText(cmd)
+    if not result:
+        return None
+    end_index = safe_index_of(result, "android.intent.category.LAUNCHER")
+    if end_index >= 0:
+        start_index = (end_index - 150) if end_index - 150 >= 0 else 0
+        lines = result[start_index:end_index].split(' ')
+        for line in lines:
+            if package_name in line:
+                return line.strip()
+
+    start_index = safe_index_of(result, "android.intent.action.MAIN")
+    if start_index >= 0:
+        end_index = (start_index + 300) if (start_index + 300 < len(result)) else len(result)
+        lines = result[start_index:end_index].split(' ')
+        key = "%s/" % (package_name)
+        for line in lines:
+            if '/com.' in line:
+                if "/%s" % (package_name) in line:
+                    return line.strip()
+            if key in line:
+                return line.strip()
+    return None
+
+
+def get_launcher(package_name):
+    main_info = get_app_main(package_name)
+    if main_info:
+        sp = main_info.split("/")
+        if len(sp) > 1:
+            return sp[1]
+    return main_info
 
 
 if __name__ == '__main__':
