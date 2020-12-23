@@ -4,6 +4,11 @@ import apk_info
 import util
 
 
+# 多设备处理
+# https://blog.csdn.net/liuzehn/article/details/100023580
+# https://www.cnblogs.com/zhuminghui/p/10472193.html
+# https://blog.csdn.net/magicbaby810/article/details/78812689
+#
 def stop_app(pkg):
     cmd = 'adb shell am force-stop ' + pkg
     msg = util.getCommodText(cmd)
@@ -36,13 +41,6 @@ def uninstall(package):
     cmd = 'adb uninstall ' + package
     msg = util.getCommodText(cmd)
     print('uninstall : ' + msg)
-    return msg
-
-
-def reInstallApk(apkPath):
-    cmd = 'adb install -r  ' + util.tranlatePath(apkPath)
-    msg = util.getCommodText(cmd)
-    print('reInstallApk : ' + msg)
     return msg
 
 
@@ -137,7 +135,7 @@ def get_focus_app_pkg():
     try:
         package = msg.split(" ")[4].split("/")[0]
     except Exception as e:
-        print("get_focus_app_pkg Exception:" + e.args[0]+'   '+msg)
+        print("get_focus_app_pkg Exception:" + e.args[0] + '   ' + msg)
     return package
 
 

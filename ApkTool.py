@@ -7,7 +7,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog
 
-from PyQt5.QtCore import Qt, QRect, pyqtSignal
+from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtGui import QPalette, QPixmap
 from PyQt5.QtWidgets import QApplication, QDesktopWidget, QGridLayout, QLabel, QPushButton, QVBoxLayout, QScrollArea, \
     QLineEdit, QComboBox
@@ -125,6 +125,7 @@ class ApkTool:
         self.edit_port.setPlaceholderText('Port')
 
         self.label_adb_dev = QLabel()
+        self.label_adb_dev.setMaximumWidth(400)
         self.label_adb_dev.adjustSize()
         self.label_point = QLabel()
         self.label_point.setScaledContents(True)
